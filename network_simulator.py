@@ -727,6 +727,86 @@ class NetworkSimulator:
         for d1, d2 in self.connections:
             self.draw_connection(d1, d2)
 
+    def load_device_icons(self):
+        icon_size = (32, 32)
+        icons = {}
+        
+        try:
+            for device_type in DeviceType:
+                image_path = os.path.join('images', f'{device_type.value.lower()}.png')
+                if os.path.exists(image_path):
+                    image = Image.open(image_path)
+                    image = image.resize(icon_size, Image.Resampling.LANCZOS)
+                    icons[device_type] = ImageTk.PhotoImage(image)
+                else:
+                    icons[device_type] = None
+            return icons
+        except Exception as e:
+            messagebox.showwarning("Warning", f"Failed to load device icons: {str(e)}\nUsing default shapes.")
+            return None
+
+    def remove_device(self, device_id):
+        self.canvas.delete(f"device_{device_id}")
+        
+        connections_to_remove = []
+        for d1, d2 in self.connections:
+            if d1 == device_id or d2 == device_id:
+                conn_id = f"connection_{min(d1, d2)}_{max(d1, d2)}"
+                self.canvas.delete(conn_id)
+                connections_to_remove.append((d1, d2))
+        
+        for conn in connections_to_remove:
+            self.connections.remove(conn)
+        
+        self.devices.pop(device_id)
+        
+        self.canvas.delete("highlight")
+        self.update_device_combos()
+        self.redraw_network()
+
+    def remove_connection_at_position(self, x, y):
+        for d1, d2 in self.connections[:]:
+            dev1 = self.devices[d1]
+            dev2 = self.devices[d2]
+            
+            if self.is_point_near_line(x, y, dev1[2], dev1[3], dev2[2], dev2[3]):
+                conn_id = f"connection_{min(d1, d2)}_{max(d1, d2)}"
+                self.canvas.delete(conn_id)
+                self.connections.remove((d1, d2))
+                self.canvas.delete("highlight")
+                return True
+        return False
+
+    def is_point_near_line(self, px, py, x1, y1, x2, y2):
+        numerator = abs((y2-y1)*px - (x2-x1)*py + x2*y1 - y2*x1)
+        denominator = ((y2-y1)**2 + (x2-x1)**2)**0.5
+        
+        if denominator == 0:
+            return False
+        
+        distance = numerator/denominator
+        
+        if min(x1, x2) <= px <= max(x1, x2) and min(y1, y2) <= py <= max(y1, y2):
+            return distance < 10
+        return False
+
+    def add_connection(self, device1_id, device2_id):
+        if device1_id == device2_id:
+            return False
+        
+        if (device1_id, device2_id) in self.connections or (device2_id, device1_id) in self.connections:
+            return False
+
+        device1_type = self.devices[device1_id][0]
+        device2_type = self.devices[device2_id][0]
+        
+        connection = (min(device1_id, device2_id), max(device1_id, device2_id))
+        self.connections.append(connection)
+
+        self.draw_connection(device1_id, device2_id)
+        self.canvas.delete("temp_line")
+        return True
+
 if __name__ == "__main__":
     root = ThemedTk(theme="clam")
     app = NetworkSimulator(root)
