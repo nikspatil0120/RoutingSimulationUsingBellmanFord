@@ -173,6 +173,13 @@ class NetworkSimulator:
             command=self.start_remove_mode
         ).pack(side="left", padx=5)
 
+        ttk.Button(
+            self.toolbar,
+            text="Rules ℹ️",
+            style='Action.TButton',
+            command=self.show_connection_rules
+        ).pack(side="right", padx=5)
+
         path_frame = ttk.Frame(self.toolbar, style='Toolbar.TFrame')
         path_frame.pack(side="left", padx=10)
 
@@ -790,18 +797,61 @@ class NetworkSimulator:
             return distance < 10
         return False
 
+    def show_connection_rules(self):
+        rules_window = tk.Toplevel(self.root)
+        rules_window.title("Connection Rules")
+        rules_window.geometry("400x300")
+        
+        style = ttk.Style()
+        style.configure("Rules.TLabel", font=("Helvetica", 10), padding=5)
+        
+        ttk.Label(
+            rules_window,
+            text="Network Device Connection Rules",
+            font=("Helvetica", 12, "bold"),
+            style="Rules.TLabel"
+        ).pack(pady=10)
+        
+        rules_text = """
+        ✅ Allowed Connections:
+        • PC ↔ Switch (Cost: 1)
+        • PC ↔ Router (Cost: 2)
+        • Switch ↔ Switch (Cost: 2)
+        • Switch ↔ Router (Cost: 2)
+        • Router ↔ Router (Cost: 3)
+        
+        ❌ Forbidden Connections:
+        • PC ↔ PC (Direct connection not allowed)
+        """
+        
+        ttk.Label(
+            rules_window,
+            text=rules_text,
+            style="Rules.TLabel",
+            justify="left"
+        ).pack(pady=10, padx=20)
+
     def add_connection(self, device1_id, device2_id):
         if device1_id == device2_id:
+            messagebox.showwarning("Invalid Connection", "Cannot connect a device to itself!")
             return False
         
         if (device1_id, device2_id) in self.connections or (device2_id, device1_id) in self.connections:
+            messagebox.showwarning("Invalid Connection", "These devices are already connected!")
             return False
 
         device1_type = self.devices[device1_id][0]
         device2_type = self.devices[device2_id][0]
         
+        if device1_type == DeviceType.PC and device2_type == DeviceType.PC:
+            messagebox.showwarning("Invalid Connection", "Cannot connect two PCs directly!\nUse a Switch or Router between PCs.")
+            return False
+        
         connection = (min(device1_id, device2_id), max(device1_id, device2_id))
         self.connections.append(connection)
+
+        cost = self.calculate_edge_cost(device1_id, device2_id)
+        messagebox.showinfo("Connection Added", f"Connection established with cost: {cost}")
 
         self.draw_connection(device1_id, device2_id)
         self.canvas.delete("temp_line")
